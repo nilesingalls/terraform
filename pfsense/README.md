@@ -1,39 +1,39 @@
 ### PFSense terraform deployment for DigitalOcean
-Niles Ingalls 2022
-Apache License 2.0
-
+Niles Ingalls 2022\
+Apache License 2.0\
+\
 # If you need a pfSense deployment within DigitalOcean, this is for you.
-
-DigitalOcean removed FreeBSD support earlier this year (2022), which removed
-the ability to deploy pfSense as a custom image.  
-
-Why do I want pfSense you might ask?  My usage is to network a handful of Snom VoIP
-phones and openwrt devices over a VPN.  Until I can find a quality VoIP phone that
-supports wireguard, pfSense with OpenVPN is my preferred approach.
-pfSense requires an interractive installation, so I've broken this up into 3 steps.
-
-##Step 1 - Deploy a DigitalOcean Debian droplet.  
-My approach is to use terraform to spin up a Debian 11 droplet, and execute an ansible
-playbook that will lead you right up to step 2, manually configuring pfSense.  More on that in a moment.
-This will require you to install both terraform and ansible from your workstation, or you can install
-the droplet manually and even run from within the droplet.
-
-(set your DO_PAT environment variable, and add your workstation public key to your digitalocean account)
-
-###Terraform approach:
-terraform plan -var "do_token=${DO_PAT}" -var "pvt_key=$HOME/.ssh/id_rsa"
-
-(make sure this looks good)
-
-terraform apply -var "do_token=${DO_PAT}" -var "pvt_key=$HOME/.ssh/id_rsa"
-
-###Ansible only approach:
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address},' --private-key ~/.ssh/id_rsa pfsense.yml
-
-When is is complete, you'll have a server that is running pfSense in nested virtulization with access ports (80/443/5900) locked 
-to your workstation IP address to manage & access pfSense.
-
-##Step 2 - manual install/setup of pfSense
+\
+DigitalOcean removed FreeBSD support earlier this year (2022), which removed\
+the ability to deploy pfSense as a custom image.\
+\
+Why do I want pfSense you might ask?  My usage is to network a handful of Snom VoIP\
+phones and openwrt devices over a VPN.  Until I can find a quality VoIP phone that\
+supports wireguard, pfSense with OpenVPN is my preferred approach.\
+pfSense requires an interractive installation, so I've broken this up into 3 steps.\
+\
+## Step 1 - Deploy a DigitalOcean Debian droplet.  
+My approach is to use terraform to spin up a Debian 11 droplet, and execute an ansible\
+playbook that will lead you right up to step 2, manually configuring pfSense.  More on that in a moment.\
+This will require you to install both terraform and ansible from your workstation, or you can install\
+the droplet manually and even run from within the droplet.\
+\
+(set your DO_PAT environment variable, and add your workstation public key to your digitalocean account)\
+\
+### Terraform approach:
+terraform plan -var "do_token=${DO_PAT}" -var "pvt_key=$HOME/.ssh/id_rsa"\
+\
+(make sure this looks good)\
+\
+terraform apply -var "do_token=${DO_PAT}" -var "pvt_key=$HOME/.ssh/id_rsa"\
+\
+### Ansible only approach:
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address},' --private-key ~/.ssh/id_rsa pfsense.yml\
+\
+When is is complete, you'll have a server that is running pfSense in nested virtulization with access ports (80/443/5900) locked\
+to your workstation IP address to manage & access pfSense.\
+\
+## Step 2 - manual install/setup of pfSense
 Log into your droplet (ssh root@{droplet_ip_address})\ 
 virsh console pfSense\
 (enter the following responses)\
@@ -73,7 +73,7 @@ pfSsh.php playback disablereferercheck\
 \
 log out of pfSense (CONTROL+])\
 \
-##Step 3 - configure Apache and Envoy 
+## Step 3 - configure Apache and Envoy 
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address},' --private-key ~/.ssh/id_rsa -e '' pfsense_post_vm.yml\
 \
 Once this is complete, you can access pfSense via VNC, or HTTPS.\
