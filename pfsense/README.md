@@ -61,3 +61,5 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address
 Once this is complete, you can access pfSense via VNC, or HTTPS.\
 Setup an OpenVPN Server and start configuring your devices.\
 Note, if you use the Client Export tool to provide you VPN config files, you'll need to edit the hostname to match your droplet IP or FQDN.
+
+![pfSense admin](/assets/pfsense1.png)
