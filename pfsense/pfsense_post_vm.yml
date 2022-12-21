@@ -1,0 +1,87 @@
+- become: yes
+  hosts: all
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: acquire pfSense WAN IP
+      shell: |
+        grep -B1 $(virsh dumpxml pfSense | awk -F\' '/mac address/ {print $2}' | head -n 1) /var/lib/libvirt/dnsmasq/virbr0.status | head -n 1 | awk '{print $2}' | sed -e s/\"//g -e s/,//
+      register: pfSense_WAN_IP
+
+    - name: Import a key for envoy
+      apt_key:
+        state: present
+        url: https://deb.dl.getenvoy.io/public/gpg.8115BA8E629CC074.key
+
+    - name: Install the envoy repo
+      apt_repository:
+        repo: deb https://deb.dl.getenvoy.io/public/deb/debian {{ ansible_distribution_release }} main
+
+    - name: Install envoy
+      apt:
+        name: getenvoy-envoy
+        state: present
+
+    - name: place envoy config file
+      template:
+        src: files/envoy-udp.yaml
+        dest: /usr/local/etc/envoy-udp.yaml
+
+    - name: place envoy service file
+      copy:
+        dest: /etc/systemd/system/envoy.service
+        content: |
+          [Unit]
+          Description=Envoy
+          [Service]
+          ExecStart=/usr/bin/envoy -c /usr/local/etc/envoy-udp.yaml
+          Restart=always
+          RestartSec=5
+          KillMode=mixed
+          SyslogIdentifier=envoy
+          LimitNOFILE=640000
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start Envoy
+      ansible.builtin.service:
+        name: envoy
+        state: started
+        enabled: yes
+
+    - name: setup apache proxy to pfSense
+      blockinfile:
+        path: /etc/apache2/sites-available/default-ssl.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK -->"
+        insertafter: "</Directory>"
+        block: |
+          SSLProxyEngine on
+          SSLProxyCheckPeerCN off
+          ProxyPass / https://192.168.1.1/
+          ProxyPassMatch ^/(.*) https://192.168.1.1/$1
+          SetEnv force-proxy-request-1.0 1
+          SetEnv proxy-nokeepalive 1
+          ProxyVia On
+
+    - name: Enable apache modules
+      apache2_module:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - ssl
+        - proxy
+        - proxy_http
+        - rewrite
+
+    - name: configure apache2
+      command: a2ensite default-ssl.conf
+      notify:
+        - Restart apache2
+
+  handlers:
+    - name: Restart apache2
+      service:
+        name: apache2
+        state: restarted
+ 
