@@ -14,3 +14,8 @@ Terriform will kick off an ansible playbook that mounts the additional volume, s
 ## Step 3 - kick off the second ansible playbook which will configure apache and envoy.\
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address},' --private-key ~/.ssh/id_rsa -e '' win2022_post_vm.yml\
 Once this has completed, you'll be able to RDP into your windows machine.  If you install IIS, you'll be able to pull up your droplet IP address in a browser and the IIS splash page.
+
+![win2022 post login](/assets/digital_ocean_win2022_a.png)
+![win2022 Virtio driver installation](/assets/digital_ocean_win2022_b.png)
+![win2022 IIS installation](/assets/digital_ocean_win2022_c.png)
+![win2022 splash page](/assets/digital_ocean_win2022_d.png)
