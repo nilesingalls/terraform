@@ -8,9 +8,9 @@ It doesn't perform very well as you could imagine, but you're welcome to crank u
 
 Tinker with the envoy configuration if you want to pass anything beyond 3389 to the Windows machine.  This config will proxy 80/443 to Windows\
 which depends on you logging into the machine and installing IIS.
-##Step 1 - Deploy a DigitalOcean Debian droplet and add a volume.
+## Step 1 - Deploy a DigitalOcean Debian droplet and add a volume.
 Terriform will kick off an ansible playbook that mounts the additional volume, setups some firewall rules, downloads Windows2022 & Virtio drivers.
-##Step 2 - Once Windows is up and running, vnc to your droplet IP address to setup your Administrator password.  Login, install virtio & iis (or whatever) then move to step 3.
-##Step 3 - kick off the second ansible playbook which will configure apache and envoy.\
+## Step 2 - Once Windows is up and running, vnc to your droplet IP address to setup your Administrator password.  Login, install virtio & iis (or whatever) then move to step 3.
+## Step 3 - kick off the second ansible playbook which will configure apache and envoy.\
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address},' --private-key ~/.ssh/id_rsa -e '' win2022_post_vm.yml\
 Once this has completed, you'll be able to RDP into your windows machine.  If you install IIS, you'll be able to pull up your droplet IP address in a browser and the IIS splash page.\
