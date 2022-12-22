@@ -1,0 +1,171 @@
+- become: yes
+  hosts: all
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    swap_file_path: /swapfile
+    swap_file_size: 1G
+    swappiness: 1
+  tasks:
+    - import_tasks: tasks/swap.yml
+
+    - name: Update APT Cache
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+
+    - name: Remove apt lock file
+      file:
+        state: absent
+        path: "/var/lib/dpkg/lock"
+
+    - name: Upgrade all packages to the latest version
+      apt:
+        name: "*"
+        state: latest
+        force_apt_get: yes
+
+    - name: Install relevant-packages
+      apt:
+        name: "{{ item }}"
+        update_cache: yes
+        state: latest
+      loop:
+        - apache2
+        - bridge-utils
+        - virt-manager
+        - apt-transport-https
+        - gnupg2
+        - curl
+        - lsb-release     
+        - unzip
+        - net-tools
+        - parted
+        - ufw
+      retries: 10
+      delay: 10
+
+    - name: disable cloud network-config (might not be needed on Debian)
+      copy:
+        content: 'network: {config: disabled}'
+        dest: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+
+    - name: fix copy/paste in debian vim
+      copy:
+        src: 'files/vimrc.local'
+        dest: /etc/vim/vimrc.local
+
+    - name: set nested virtualization option
+      copy:
+        content: 'options kvm_intel nested=1'
+        dest: /etc/modprobe.d/kvm.conf
+
+    - name: Restart libvirtd
+      service:
+        name: libvirtd
+        state: restarted
+
+    - import_tasks: tasks/drive.yml
+
+    - name: prep network
+      ansible.builtin.replace:
+        path: /etc/network/interfaces
+        regexp: 'eth0'
+        replace: 'br0'
+
+    - name: bridge your bridge
+      blockinfile:
+        path: /etc/network/interfaces
+        marker: "# {mark} ANSIBLE MANAGED BLOCK -->"
+        insertafter: "iface br0 inet static"
+        block: "        bridge_ports eth0" 
+
+    - name: Reboot the server
+      tags: reboot
+      become: yes
+      become_user: root
+      shell: "sleep 5 && reboot"
+      async: 1
+      poll: 0
+    
+    - name: Wait for the reboot to complete if there was a change.
+      wait_for_connection:
+        connect_timeout: 10
+        sleep: 5
+        delay: 5
+        timeout: 300
+
+    - name: Get my controller ip address
+      ipify_facts:
+      delegate_to: localhost
+
+    - name: set a safe default firewall
+      community.general.ufw:
+        state: enabled
+        policy: "{{ item.policy }}"
+        direction: "{{ item.direction }}"
+      loop:
+        - { policy: allow, direction: outgoing }
+        - { policy: deny, direction: incoming }
+
+    - name: Allow controller to reach things
+      community.general.ufw:
+        interface: br0
+        rule: allow
+        direction: in
+        to_port: "{{ item.to_port }}"
+        proto: "{{ item.proto }}"
+        src: "{{ item.src }}"
+      loop:
+        - { to_port: 22, proto: 'tcp', src: '' }
+        - { to_port: 80, proto: 'tcp', src: '' }
+        - { to_port: 443, proto: 'tcp', src: '' }
+        - { to_port: 3389, proto: 'tcp', src: "{{ ipify_public_ip }}" }
+        - { to_port: 5900, proto: 'tcp', src: "{{ ipify_public_ip }}" }
+
+    - name: stat virtio iso
+      stat:
+        path: /opt/win2022/virtio-win.iso
+      register: virtio
+
+    - name: download virtio iso
+      ansible.builtin.get_url:
+        url: https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+        dest: /opt/win2022/virtio-win.iso
+      when: virtio.stat.exists is not defined
+
+    - name: stat vmdk image
+      stat:
+        path: /opt/win2022/win2022en-standard-minimal.vmdk
+      register: vmdk
+
+    - name: download win2022 vmdk file
+      ansible.builtin.get_url:
+        url: https://s3.bigstack.co/downloads/cloud-image/win2022en-standard-minimal.vmdk
+        dest: /opt/win2022/win2022en-standard-minimal.vmdk
+        checksum: sha256:b4880ad0b63291e6b2c80eb26f62124467a476e0aefd6376be25510f83a864e1
+      when: vmdk.stat.exists is not defined
+
+    - name: stat qcow2 image
+      stat:
+        path: /opt/win2022/win2022en-standard-minimal.qcow2
+      register: qcow2
+
+    - name: convert vmdk 
+      command: qemu-img convert -p -f vmdk -O qcow2 /opt/win2022/win2022en-standard-minimal.vmdk /opt/win2022/win2022en-standard-minimal.qcow2
+      when: vmdk.stat.exists is defined and qcow2.stat.exists is not defined
+
+    - name: build a vm
+      shell: |
+        virsh net-autostart default
+        virsh net-start default
+        virt-install --name win2022 \
+        --memory 1024 \
+        --autostart \
+        --os-type=windows \
+        --os-variant=win2k16 \
+        --machine pc-q35-2.6 \
+        --disk /opt/win2022/virtio-win.iso,device=cdrom \
+        --boot hd,menu=on,useserial=on \
+        --disk /opt/win2022/win2022en-standard-minimal.qcow2 \
+        --network bridge=virbr0,model=virtio \
+        --graphics vnc,listen=0.0.0.0 --noautoconsole

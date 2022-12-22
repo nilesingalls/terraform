@@ -1,0 +1,20 @@
+---
+- name: Create a new drive
+  community.general.parted:
+    device: /dev/sda
+    number: 1
+    flags: [ lvm ]
+    part_end: "100%"
+    state: present
+
+- name: Create a ext4 filesystem
+  community.general.filesystem:
+    fstype: ext4
+    dev: /dev/sda1
+
+- name: Mount up new volume
+  ansible.posix.mount:
+    path: /opt/win2022
+    src: UUID={{ ansible_devices.sda.partitions.sda1.uuid }}
+    fstype: ext4
+    state: mounted
