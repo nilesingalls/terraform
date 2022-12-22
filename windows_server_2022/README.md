@@ -13,4 +13,4 @@ Terriform will kick off an ansible playbook that mounts the additional volume, s
 ## Step 2 - Once Windows is up and running, vnc to your droplet IP address to setup your Administrator password.  Login, install virtio & iis (or whatever) then move to step 3.
 ## Step 3 - kick off the second ansible playbook which will configure apache and envoy.\
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u root -i '{droplet_ip_address},' --private-key ~/.ssh/id_rsa -e '' win2022_post_vm.yml\
-Once this has completed, you'll be able to RDP into your windows machine.  If you install IIS, you'll be able to pull up your droplet IP address in a browser and the IIS splash page.\
+Once this has completed, you'll be able to RDP into your windows machine.  If you install IIS, you'll be able to pull up your droplet IP address in a browser and the IIS splash page.
